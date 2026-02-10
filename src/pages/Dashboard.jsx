@@ -1,197 +1,182 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { motion as Motion } from "framer-motion";
-import { CheckCircleIcon, PlayCircleIcon, TrashIcon } from "@heroicons/react/24/solid";
+import MainLayout from "../Layouts/MainLayout"
+import { useEffect, useState } from "react"
+import axios from "axios"
+import { useNavigate } from "react-router-dom"
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts"
 
-const API_URL = "https://api.tafadzwa.co/";
-
-const api = axios.create({
-  baseURL: API_URL,
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+const API_URL = "https://api.tafadzwa.co"
 
 export default function Dashboard() {
-  const [tasks, setTasks] = useState([]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [scheduledDate, setScheduledDate] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const completedCount = tasks.filter((task) => task.status === "completed").length;
-  const totalCount = tasks.length;
-  const progress = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+  const [tasks, setTasks] = useState([])
+  const navigate = useNavigate()
+  const token = localStorage.getItem("access")
 
   useEffect(() => {
-    const token = localStorage.getItem("access");
     if (!token) {
-      window.location.href = "/login"; // hard redirect for cPanel
-      return;
+      navigate("/login")
+      return
     }
-    loadTasks();
-  }, []);
 
-  const loadTasks = async () => {
-    try {
-      const res = await api.get("/api/tasks/");
-      setTasks(res.data);
-    } catch (error) {
-      console.error("Failed to fetch tasks:", error);
-    }
-  };
+    axios
+      .get(`${API_URL}/api/tasks/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then(res => setTasks(res.data))
+      .catch(err => console.error(err))
+  }, [token, navigate])
 
-  const createTask = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await api.post("/api/tasks/", {
-        title,
-        description,
-        scheduled_date: scheduledDate,
-        status: "pending",
-      });
-      setTitle("");
-      setDescription("");
-      setScheduledDate("");
-      loadTasks();
-    } catch (error) {
-      console.error("Failed to create task:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stats = {
+    total: tasks.length,
+    completed: tasks.filter(t => t.status === "completed").length,
+    pending: tasks.filter(t => t.status === "pending").length,
+    progress: tasks.filter(t => t.status === "in_progress").length,
+  }
 
-  const updateStatus = async (id, status) => {
-    try {
-      await api.patch(`/api/tasks/${id}/`, { status });
-      loadTasks();
-    } catch (error) {
-      console.error("Failed to update task:", error);
-    }
-  };
+  const pieData = [
+    { name: "Completed", value: stats.completed },
+    { name: "Pending", value: stats.pending },
+    { name: "In Progress", value: stats.progress },
+  ]
 
-  const deleteTask = async (id) => {
-    try {
-      await api.delete(`/api/tasks/${id}/`);
-      loadTasks();
-    } catch (error) {
-      console.error("Failed to delete task:", error);
-    }
-  };
-
-  const logout = () => {
-    localStorage.clear();
-    window.location.href = "/login"; // hard redirect
-  };
+  const lineData = [
+    { name: "Tasks", Completed: stats.completed, Pending: stats.pending },
+  ]
 
   return (
-    <div className="page-shell" style={{ alignItems: "flex-start" }}>
-      <div className="floating-blob" style={{ top: "-12%", left: "-10%" }} />
-      <div className="floating-blob" style={{ bottom: "-14%", right: "-12%" }} />
+    <MainLayout>
+      <div className="p-6 bg-gray-100 min-h-screen">
 
-      <div style={{ width: "100%", maxWidth: 1080, display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-        <div className="glass-card" style={{ padding: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "center" }}>
-            <div style={{ textAlign: "left" }}>
-              <p style={{ color: "#94a3b8", margin: 0 }}>Welcome back</p>
-              <h1 style={{ margin: "0.2rem 0", fontSize: "1.9rem" }}>My Learning Tracker</h1>
-              <p style={{ color: "#cbd5e1", margin: 0 }}>Track progress across your learning plan.</p>
-            </div>
-            <button onClick={logout} className="btn-ghost" style={{ width: "auto" }}>Logout</button>
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+
+          <div className="flex gap-3">
+            <button className="px-4 py-2 bg-gray-200 rounded-lg">
+              + Create New Task
+            </button>
+
+            <button
+              onClick={() => {
+                localStorage.clear()
+                navigate("/login")
+              }}
+        className="bg-red-500 text-white px-4 py-2 rounded-lg"
+            >
+              Logout
+            </button>
           </div>
         </div>
 
-        <div className="card-grid">
-          <div className="glass-card" style={{ padding: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-              <div>
-                <p style={{ color: "#94a3b8", margin: 0 }}>Overall progress</p>
-                <h2 style={{ margin: 0, fontSize: "1.4rem" }}>{completedCount} / {totalCount || 0} done</h2>
-              </div>
-              <div className="pill" style={{ height: "fit-content" }}>{progress}%</div>
-            </div>
-            <div className="progress-track">
-              <Motion.div
-                className="progress-fill"
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.8 }}
-              />
-            </div>
+        {/* STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <StatCard title="Total Tasks" value={stats.total} />
+          <StatCard title="Completed Tasks" value={stats.completed} />
+          <StatCard title="Pending Tasks" value={stats.pending} />
+          <StatCard title="In Progress Tasks" value={stats.progress} />
+        </div>
+
+        {/* CHARTS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm">
+            <h2 className="font-semibold mb-4">Task Completion Overview</h2>
+
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={lineData}>
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="Completed" stroke="#22c55e" />
+                <Line type="monotone" dataKey="Pending" stroke="#facc15" />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
-          <div className="glass-card" style={{ padding: "1.25rem" }}>
-            <p style={{ color: "#94a3b8", marginTop: 0, marginBottom: "0.65rem" }}>Add a task</p>
-            <form onSubmit={createTask} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <input
-                id="task-title"
-                name="title"
-                className="field"
-                placeholder="Task title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
-              <input
-                id="task-description"
-                name="description"
-                className="field"
-                placeholder="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <input
-                id="task-scheduled"
-                name="scheduled_date"
-                type="datetime-local"
-                className="field"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
-                required
-              />
-              <button className="btn-primary" disabled={loading}>
-                {loading ? "Adding..." : "Add Task"}
-              </button>
-            </form>
+          <div className="bg-white p-6 rounded-xl shadow-sm">
+            <h2 className="font-semibold mb-4">Tasks Breakdown</h2>
+
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  outerRadius={80}
+                  label
+                >
+                  <Cell fill="#22c55e" />
+                  <Cell fill="#facc15" />
+                  <Cell fill="#3b82f6" />
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="glass-card" style={{ padding: "1.25rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-            <h3 style={{ margin: 0 }}>Tasks</h3>
-            <span style={{ color: "#94a3b8" }}>{tasks.length} total</span>
-          </div>
+        {/* RECENT ACTIVITY */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="font-semibold mb-4">Recent Activity</h2>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {tasks.length === 0 && <p style={{ color: "#94a3b8", margin: 0 }}>No tasks yet. Add your first one!</p>}
-            {tasks.map((task) => (
-              <div key={task.id} className="task-card">
-                <div style={{ textAlign: "left" }}>
-                  <h4 style={{ margin: 0 }}>{task.title}</h4>
-                  <small style={{ color: "#94a3b8" }}>{task.status.replace("_", " ")}</small>
-                </div>
-                <div style={{ display: "flex", gap: "0.35rem" }}>
-                  <button onClick={() => updateStatus(task.id, "in_progress")} className="btn-ghost" style={{ width: "auto", padding: "0.4rem 0.55rem" }}>
-                    <PlayCircleIcon className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => updateStatus(task.id, "completed")} className="btn-ghost" style={{ width: "auto", padding: "0.4rem 0.55rem" }}>
-                    <CheckCircleIcon className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => deleteTask(task.id)} className="btn-ghost" style={{ width: "auto", padding: "0.4rem 0.55rem" }}>
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-500">
+                <th className="pb-2">Task</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {tasks.slice(0, 5).map(task => (
+                <tr key={task.id} className="border-b last:border-0">
+                  <td className="py-3">{task.title}</td>
+                  <td>
+                    <StatusBadge status={task.status} />
+                  </td>
+                  <td className="text-xs text-gray-500">
+                    {new Date(task.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
       </div>
+    </MainLayout>
+  )
+}
+
+/* COMPONENTS */
+
+function StatCard({ title, value }) {
+  return (
+    <div className="bg-white p-5 rounded-xl shadow-sm">
+      <p className="text-gray-500 text-sm">{title}</p>
+      <h2 className="text-3xl font-semibold mt-2">{value}</h2>
     </div>
-  );
+  )
+}
+
+function StatusBadge({ status }) {
+  const colors = {
+    completed: "bg-green-100 text-green-700",
+    pending: "bg-yellow-100 text-yellow-700",
+    in_progress: "bg-blue-100 text-blue-700",
+  }
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs ${colors[status]}`}>
+      {status.replace("_", " ")}
+    </span>
+  )
 }

@@ -1,19 +1,25 @@
 import { Routes, Route, Navigate } from "react-router-dom"
-import Dashboard from "./pages/Dashboard"
-import Landing from "./pages/Landing"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
+import Dashboard from "./pages/Dashboard"
+import Tasks from "./pages/tasks.jsx"
 
-function App() {
+export default function App() {
+  const token = localStorage.getItem("access")
+
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="/dashboard"
+        element={token ? <Dashboard /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/tasks"
+        element={token ? <Tasks /> : <Navigate to="/login" />}
+      />
+      <Route path="*" element={<Navigate to="/login" />} />
     </Routes>
   )
 }
-
-export default App
