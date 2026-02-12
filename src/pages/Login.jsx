@@ -2,7 +2,10 @@ import { useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate } from 'react-router-dom'
 
-const API_URL = "https://api.tafadzwa.co/api/token/"
+// Use proxy in development, direct URL in production
+const API_URL = import.meta.env.DEV 
+  ? 'http://localhost:5174/api/token/'
+  : 'https://api.tafadzwa.co/api/token/'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -17,22 +20,25 @@ export default function Login() {
     setError("")
 
     try {
-      const res = await axios.post(API_URL, { username, password })
+      const res = await axios.post(API_URL, { username, password }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
 
       console.log("Login success:", res.data)
 
       // Save JWT tokens
       localStorage.setItem("access", res.data.access)
       localStorage.setItem("refresh", res.data.refresh)
+      localStorage.setItem("user", JSON.stringify({ username }))
 
       // Redirect to dashboard after login
       navigate('/dashboard')
 
-
-
     } catch (err) {
       console.error("Login error:", err)
-      setError(err.response?.data?.detail || "Login failed")
+      setError(err.response?.data?.detail || "Login failed. Please check your credentials.")
     } finally {
       setLoading(false)
     }
